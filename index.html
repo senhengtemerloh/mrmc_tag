@@ -3,714 +3,1087 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>S-Coin Pricetag Overlay</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;700;800;900&family=Poppins:wght@700;800;900&display=swap" rel="stylesheet" />
+  <title>S-Coin Price Tag Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;700;800;900&display=swap" rel="stylesheet">
+  <script src="./xlsx.full.min.js" onerror="var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';document.head.appendChild(s);"></script>
   <style>
     :root {
-      --sheet-width: 210mm;
-      --sheet-height: 297mm;
-      --ui-bg: #f5f5f5;
-      --line: #d7d7d7;
-      --text: #111;
-      --muted: #666;
-      --panel: #fff;
+      --page-w: 210mm;
+      --page-h: 297mm;
+      --nudge-x: 0mm;
+      --nudge-y: 0mm;
+      --fs-points: 92px;
+      --fs-name: 16px;
+      --fs-model: 18px;
+      --fs-price: 12px;
+      --fs-remark: 8.5px;
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
-    html,
     body {
       margin: 0;
-      padding: 0;
+      padding: 18px;
+      background: #eeeeee;
+      color: #222;
+      font-family: 'Noto Sans', Arial, Helvetica, sans-serif;
     }
 
-    body {
-      font-family: "Noto Sans", Arial, Helvetica, sans-serif;
-      background: var(--ui-bg);
-      color: var(--text);
-    }
-
-    .app {
-      display: grid;
-      grid-template-columns: 340px 1fr;
-      min-height: 100vh;
-    }
-
-    .controls {
-      background: var(--panel);
-      border-right: 1px solid var(--line);
-      padding: 20px;
-      position: sticky;
-      top: 0;
-      height: 100vh;
-      overflow: auto;
-    }
-
-    .controls h1 {
-      margin: 0 0 8px;
-      font-size: 22px;
-    }
-
-    .controls p {
-      margin: 0 0 18px;
-      color: var(--muted);
-      font-size: 14px;
-      line-height: 1.5;
-    }
-
-    .field {
-      margin-bottom: 14px;
-    }
-
-    .field label {
-      display: block;
-      font-size: 13px;
-      font-weight: 700;
-      margin-bottom: 6px;
-    }
-
-    .field input,
-    .field textarea {
-      width: 100%;
-      border: 1px solid #cfcfcf;
-      border-radius: 10px;
-      padding: 10px 12px;
-      font: inherit;
-      background: #fff;
-    }
-
-    .field textarea {
-      min-height: 86px;
-      resize: vertical;
-    }
-
-    .row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-
-    .btns {
+    #app {
       display: flex;
-      gap: 10px;
-      margin-top: 18px;
-      flex-wrap: wrap;
+      align-items: flex-start;
+      gap: 18px;
+      max-width: 1480px;
+      margin: 0 auto;
     }
+
+    #controls {
+      flex: 0 0 430px;
+      width: 430px;
+      max-height: calc(100vh - 36px);
+      overflow: auto;
+      position: sticky;
+      top: 18px;
+      background: #fff;
+      border-radius: 12px;
+      padding: 18px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+      z-index: 20;
+    }
+
+    #previewShell {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: auto;
+      padding-bottom: 30px;
+    }
+
+    h1 {
+      margin: 0 0 8px 0;
+      font-size: 24px;
+      color: #d71920;
+    }
+
+    .muted { color: #666; font-size: 13px; line-height: 1.45; }
+    .small { font-size: 12px; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .panel {
+      background: #fafafa;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      padding: 12px;
+    }
+
+    .upload-label {
+      display: block;
+      border: 2px dashed #cfcfcf;
+      background: #fff;
+      padding: 14px;
+      text-align: center;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .upload-label:hover { border-color: #d71920; }
+    input[type="file"] { display: none; }
 
     button {
       border: 0;
-      border-radius: 12px;
-      padding: 11px 16px;
-      font: inherit;
+      border-radius: 8px;
+      padding: 10px 14px;
       font-weight: 700;
       cursor: pointer;
-      background: #111;
+      background: #d71920;
       color: #fff;
+      margin: 4px 6px 4px 0;
     }
 
-    button.secondary {
-      background: #e9e9e9;
-      color: #111;
+    button:hover { background: #b9141a; }
+    button.secondary { background: #555; }
+    button.secondary:hover { background: #333; }
+    button.light { background: #777; }
+    button.light:hover { background: #555; }
+
+    #searchInput {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 15px;
+      margin: 10px 0;
     }
 
-    .drag-panel {
-      margin-top: 14px;
-      padding: 12px;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      background: #fafafa;
+    .list-tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      justify-content: space-between;
     }
 
-    .drag-panel h3 {
-      margin: 0 0 8px;
-      font-size: 14px;
+    #itemCheckboxes {
+      max-height: 310px;
+      overflow: auto;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
     }
 
-    .drag-panel p,
-    .note {
-      margin-top: 10px;
-      font-size: 12px;
-      color: var(--muted);
-      line-height: 1.5;
-    }
-
-    .coord-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
+    .item-row {
+      display: flex;
       gap: 10px;
+      align-items: flex-start;
+      padding: 8px 10px;
+      border-bottom: 1px solid #eee;
+      cursor: pointer;
+      font-size: 13px;
+      line-height: 1.25;
+    }
+
+    .item-row:hover { background: #fff6f6; }
+    .item-row input { margin-top: 2px; transform: scale(1.15); }
+    .item-main { font-weight: 700; }
+    .item-sub { color: #666; margin-top: 2px; }
+    .item-remark { color: #a20f16; margin-top: 2px; font-size: 12px; }
+
+    .nudge-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
       margin-top: 8px;
     }
 
-    .preview-wrap {
-      padding: 24px;
-      overflow: auto;
+    .nudge-row input[type="number"] {
+      width: 82px;
+      padding: 7px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
     }
 
-    .sheet {
+
+    .font-row {
+      display: grid;
+      grid-template-columns: 1fr 42px;
+      gap: 8px;
+      align-items: center;
+      margin-top: 8px;
+      font-size: 13px;
+    }
+
+    .font-row label {
+      display: grid;
+      grid-template-columns: 98px 1fr;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .font-row input[type="range"] { width: 100%; }
+
+    #statusBox {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 8px;
+      background: #f5f5f5;
+      border: 1px solid #ddd;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    #printArea {
+      width: var(--page-w);
+      margin: 0;
+    }
+
+    @media screen and (max-width: 1260px) {
+      #app { display: block; }
+      #controls {
+        width: auto;
+        max-height: none;
+        position: static;
+        margin-bottom: 18px;
+      }
+      #printArea { margin: 0 auto; }
+    }
+
+    .a4-page {
+      width: var(--page-w);
+      height: var(--page-h);
       position: relative;
-      width: var(--sheet-width);
-      height: var(--sheet-height);
-      margin: 0 auto;
-      background: #fff;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
-      aspect-ratio: 210 / 297;
       overflow: hidden;
+      margin: 0 auto 20px auto;
+      background: #fff;
+      box-shadow: 0 0 14px rgba(0,0,0,0.24);
+      page-break-after: always;
+      transform: translate(var(--nudge-x), var(--nudge-y));
+      transform-origin: top left;
     }
 
-    .base-template {
+    .bg-img {
       position: absolute;
       inset: 0;
       width: 100%;
       height: 100%;
       object-fit: fill;
-      opacity: 0.2;
+      opacity: 0.42;
+      z-index: 1;
       pointer-events: none;
       user-select: none;
     }
 
-    .overlay {
+    .tag-field {
       position: absolute;
-      inset: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      overflow: hidden;
+      padding: 1.2mm 2.2mm;
+      color: #111;
+      line-height: 1.06;
+      font-weight: 800;
+      white-space: normal;
+      word-break: break-word;
+      overflow-wrap: break-word;
+      font-family: 'Noto Sans', Arial, Helvetica, sans-serif;
+    }
+
+    .fit-inner {
+      display: block;
+      max-width: 100%;
+      font-size: inherit;
+      transform-origin: center center;
+      will-change: transform;
+    }
+
+    .single-line .fit-inner {
+      white-space: nowrap;
+      max-width: none;
+    }
+
+    .tag-name .fit-inner {
+      width: 100%;
+      max-width: 100%;
+      white-space: normal;
+      word-break: normal;
+      overflow-wrap: anywhere;
+      font-size: inherit;
+    }
+
+    .tag-model {
+      font-size: var(--fs-model);
+      letter-spacing: 0.2px;
+      text-transform: uppercase;
+    }
+
+    .tag-name {
+      font-size: var(--fs-name);
+      text-transform: uppercase;
+      line-height: 1.02;
+      padding: 0.8mm 2.4mm;
+      overflow-wrap: anywhere;
+      word-break: normal;
+    }
+
+    .tag-points {
+      font-size: var(--fs-points);
+      line-height: 0.98;
+      letter-spacing: -1.2px;
+      font-weight: 900;
+      white-space: nowrap;
+      word-break: normal;
+      overflow-wrap: normal;
+      font-variant-numeric: tabular-nums;
+      padding: 1mm 2mm 2.2mm;
+    }
+
+    .tag-price {
+      justify-content: flex-start;
+      text-align: left;
+      font-size: var(--fs-price);
+      line-height: 1.12;
+      font-weight: 900;
       color: #000;
-      font-family: "Noto Sans", Arial, Helvetica, sans-serif;
+      padding: 0 1.8mm;
     }
 
-    .last-unit {
-      position: absolute;
-      left: 10mm;
-      top: -1.5mm;
-      width: 190mm;
-      font-family: Arial, Helvetica, sans-serif;
-      font-weight: 900;
-      font-size: 21mm;
-      line-height: 0.84;
-      letter-spacing: -0.7mm;
-      text-transform: uppercase;
-      text-align: center;
-    }
-
-    .drag-group {
-      position: absolute;
-      cursor: grab;
-      user-select: none;
-      touch-action: none;
-    }
-
-    .drag-group.dragging {
-      cursor: grabbing;
-    }
-
-    .drag-outline {
-      outline: 1px dashed rgba(0, 0, 0, 0.35);
-      outline-offset: 2px;
-    }
-
-    .scoin-value-group {
-      left: 28mm;
-      top: 97mm;
-    }
-
-    .percent-main {
-      font-weight: 900;
-      font-size: 48mm;
-      line-height: 0.8;
-      letter-spacing: -2.2mm;
-      min-width: 64mm;
-      text-align: center;
-      white-space: nowrap;
-    }
-
-    .scoin-text-group {
-      left: 130mm;
-      top: 114mm;
-      font-family: "Poppins", "Noto Sans", Arial, Helvetica, sans-serif;
-    }
-
-    .percent-symbol {
-      font-weight: 900;
-      font-size: 21mm;
-      line-height: 0.78;
-      letter-spacing: -1mm;
-      font-family: "Poppins", "Noto Sans", Arial, Helvetica, sans-serif;
-      white-space: nowrap;
-    }
-
-    .percent-symbol .asterisk {
-      display: inline-block;
-      font-size: 6mm;
-      margin-left: 0.2mm;
-      transform: translateY(-2.2mm);
-    }
-
-    .cashback {
-      font-weight: 900;
-      line-height: 0.94;
-      text-transform: uppercase;
-      margin-top: 2.2mm;
-      letter-spacing: -0.15mm;
-      font-family: "Poppins", "Noto Sans", Arial, Helvetica, sans-serif;
-    }
-
-    .cashback .scoin-line {
-      display: block;
-      font-size: 6.5mm;
-    }
-
-    .cashback .cashback-line {
-      display: block;
-      font-size: 4.8mm;
-      letter-spacing: -0.08mm;
-    }
-
-    .price-box {
-      position: absolute;
-      left: 5.3mm;
-      top: 203.5mm;
-      width: 199.4mm;
-      height: 90.5mm;
-      background: #dcdcdc;
-    }
-
-    .model-label,
-    .desc-label {
-      position: absolute;
-      left: 10mm;
-      font-size: 5mm;
+    .tag-remark {
+      justify-content: flex-start;
+      text-align: left;
+      font-size: var(--fs-remark);
       line-height: 1.08;
-      text-transform: uppercase;
-      letter-spacing: -0.08mm;
+      font-weight: 800;
+      color: #000;
+      padding: 0 1.8mm;
+      opacity: 1;
     }
 
-    .model-label {
-      top: 209.5mm;
-    }
+    .empty-tag .tag-field { display: none; }
 
-    .desc-label {
-      top: 217.3mm;
-    }
-
-    .model-value,
-    .desc-value {
-      position: absolute;
-      left: 42.8mm;
-      width: 154mm;
-      font-size: 5mm;
-      line-height: 1.08;
-      text-transform: uppercase;
-      font-weight: 700;
-      letter-spacing: -0.06mm;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .model-value {
-      top: 209.5mm;
-    }
-
-    .desc-value {
-      top: 217.3mm;
-    }
-
-    .now-rm {
-      position: absolute;
-      left: 8.8mm;
-      top: 241mm;
-      font-weight: 900;
-      text-transform: uppercase;
-      line-height: 0.86;
-      letter-spacing: -0.3mm;
-    }
-
-    .now-rm .now {
-      display: block;
-      font-size: 13.8mm;
-    }
-
-    .now-rm .rm {
-      display: block;
-      font-size: 22.8mm;
-    }
-
-    .now-price {
-      position: absolute;
-      left: 54mm;
-      top: 230.5mm;
-      width: 140mm;
-      font-weight: 900;
-      font-size: 46mm;
-      line-height: 0.92;
-      letter-spacing: -1.3mm;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: clip;
-    }
-
-    .before {
-      position: absolute;
-      right: 5.8mm;
-      top: 278.5mm;
-      font-size: 6.8mm;
-      text-transform: uppercase;
-      white-space: nowrap;
-      letter-spacing: -0.2mm;
-    }
-
-    .before .value {
-      font-weight: 400;
-    }
-
-    .screen-only {
-      display: block;
-    }
-
-    @media (max-width: 1180px) {
-      .app {
-        grid-template-columns: 1fr;
-      }
-
-      .controls {
-        position: static;
-        height: auto;
-        border-right: 0;
-        border-bottom: 1px solid var(--line);
-      }
-
-      .preview-wrap {
-        padding: 16px;
-      }
-
-      .sheet {
-        width: min(210mm, calc(100vw - 32px));
-        height: auto;
+    @media screen {
+      .tag-field {
+        outline: 1px dashed rgba(215,25,32,0.28);
+        background: rgba(255,255,255,0.02);
       }
     }
 
     @media print {
-      @page {
-        size: A4 portrait;
+      html, body {
+        width: var(--page-w);
+        min-height: var(--page-h);
         margin: 0;
-      }
-
-      html,
-      body {
-        width: 210mm;
-        height: 297mm;
-        overflow: hidden;
+        padding: 0;
         background: #fff;
       }
 
-      .controls,
-      .screen-only,
-      .drag-outline {
-        display: none !important;
-      }
+      #app { display: block; max-width: none; margin: 0; }
+      #controls, #previewShell > :not(#printArea) { display: none !important; }
+      #previewShell { overflow: visible; padding: 0; }
+      #printArea { width: var(--page-w); margin: 0; }
 
-      .app,
-      .preview-wrap {
-        display: block;
-        width: 210mm;
-        height: 297mm;
-        margin: 0 !important;
-        padding: 0 !important;
-        overflow: hidden;
-      }
-
-      .sheet {
-        width: 210mm !important;
-        height: 297mm !important;
-        margin: 0 !important;
+      .a4-page {
+        margin: 0;
         box-shadow: none;
-        break-inside: avoid;
-        page-break-after: avoid;
-        page-break-inside: avoid;
+        page-break-after: always;
+        break-after: page;
       }
 
-      .base-template {
-        display: none !important;
+      .bg-img { display: none !important; }
+      body.print-template .bg-img {
+        display: block !important;
+        opacity: 1 !important;
       }
+
+      .tag-field {
+        outline: none !important;
+        background: transparent !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      @page { size: A4; margin: 0; }
     }
   </style>
 </head>
 <body>
-  <div class="app">
-    <aside class="controls screen-only">
-      <h1>S-Coin Pricetag Overlay</h1>
-      <p>Isi value sahaja. Semua posisi utama sudah fixed ikut contoh. Gambar template scan hanya untuk rujukan preview dan tidak akan diprint.</p>
+  <div id="app">
+  <div id="controls">
+    <h1>S-Coin Price Tag Generator</h1>
+    <div class="muted">
+      This version maps the text areas to the uploaded pre-printed template. Stopped rows are filtered out using the Remark column. S-Coin values and long product names now auto-fit more carefully, the page uses Noto Sans, and global font sliders let you resize each area type for all tags at once. Slider changes are applied live; product-name text now responds directly to its slider, then only scales down if it would crop.
+    </div>
 
-      <div class="field">
-        <label for="model">Model</label>
-        <input id="model" type="text" placeholder="Contoh: QA75QN70F" maxlength="40" />
+    <div class="grid">
+      <div class="panel">
+        <label class="upload-label">
+          📂 Select Excel file
+          <input type="file" id="excelFileInput" accept=".xlsx,.xls" />
+        </label>
+        <div id="fileNameDisplay" class="muted" style="margin-top:8px;">Trying to auto-load Excel from the same folder...</div>
       </div>
 
-      <div class="field">
-        <label for="description">Description</label>
-        <textarea id="description" placeholder="Contoh: 75 INCH NEO QLED 4K SMART TV"></textarea>
+      <div class="panel">
+        <label class="upload-label">
+          🖼️ Select template image
+          <input type="file" id="templateFileInput" accept="image/*" />
+        </label>
+        <div id="templateStatus" class="muted" style="margin-top:8px;">Trying to auto-load template image from the same folder...</div>
       </div>
 
-      <div class="row">
-        <div class="field">
-          <label for="beforePrice">Before Price</label>
-          <input id="beforePrice" type="text" placeholder="9,999" inputmode="decimal" />
-        </div>
-        <div class="field">
-          <label for="nowPrice">Now Price</label>
-          <input id="nowPrice" type="text" placeholder="9,999" inputmode="decimal" />
-        </div>
-      </div>
-
-      <div class="field">
-        <label for="scoinPercent">S-Coin %</label>
-        <input id="scoinPercent" type="text" placeholder="70" maxlength="3" inputmode="numeric" />
-      </div>
-
-      <div class="btns">
-        <button id="printBtn" type="button">Print</button>
-        <button id="clearBtn" class="secondary" type="button">Clear</button>
-      </div>
-
-      <div class="drag-panel">
-        <h3>Drag fine tuning</h3>
-        <p>Dua group di preview boleh drag: nombor percentage dan blok %* S-COIN CASHBACK. Nilai koordinat akan update automatik.</p>
-        <div class="coord-grid">
-          <div class="field">
-            <label for="percentX">Percent X (mm)</label>
-            <input id="percentX" type="number" step="0.5" />
-          </div>
-          <div class="field">
-            <label for="percentY">Percent Y (mm)</label>
-            <input id="percentY" type="number" step="0.5" />
-          </div>
-          <div class="field">
-            <label for="textX">Text X (mm)</label>
-            <input id="textX" type="number" step="0.5" />
-          </div>
-          <div class="field">
-            <label for="textY">Text Y (mm)</label>
-            <input id="textY" type="number" step="0.5" />
-          </div>
+      <div class="panel">
+        <b>Print alignment</b>
+        <div class="muted small">Use only if your printer shifts the text slightly. Positive X moves right. Positive Y moves down.</div>
+        <div class="nudge-row">
+          <label>X mm <input type="number" id="nudgeX" step="0.2" value="0"></label>
+          <label>Y mm <input type="number" id="nudgeY" step="0.2" value="0"></label>
+          <label><input type="checkbox" id="printBgCheckbox"> Print template image</label>
         </div>
       </div>
 
-      <div class="note">
-        Letakkan fail imej template scan dalam folder yang sama dengan fail ini dan pastikan namanya <strong>PRE-PRINT TEMPLATE.png</strong>.<br /><br />
-        Preview akan tunjuk template pada opacity rendah untuk alignment. Masa print, hanya elemen overlay akan keluar. Saiz print dikunci kepada nisbah A4, walaupun saiz asal imej scan berbeza.
+
+      <div class="panel font-panel">
+        <b>Global font size</b>
+        <div class="muted small">Adjust by area type. Changes apply to all generated tags at once. Auto-fit still protects text from being cropped.</div>
+        <div class="font-row"><label>S-Coin <input type="range" id="fontPoints" min="20" max="120" step="1" value="92"></label><span id="fontPointsVal">92</span></div>
+        <div class="font-row"><label>Product Name <input type="range" id="fontName" min="5" max="24" step="0.5" value="16"></label><span id="fontNameVal">16</span></div>
+        <div class="font-row"><label>Model Code <input type="range" id="fontModel" min="10" max="24" step="0.5" value="18"></label><span id="fontModelVal">18</span></div>
+        <div class="font-row"><label>Member Price <input type="range" id="fontPrice" min="7" max="16" step="0.5" value="12"></label><span id="fontPriceVal">12</span></div>
+        <div class="font-row"><label>Remark <input type="range" id="fontRemark" min="5" max="12" step="0.5" value="8.5"></label><span id="fontRemarkVal">8.5</span></div>
       </div>
-    </aside>
+    </div>
 
-    <main class="preview-wrap">
-      <div class="sheet" id="sheet">
-        <img class="base-template" src="PRE-PRINT TEMPLATE.png" alt="Template reference" onerror="this.style.display='none'" />
+    <div id="statusBox">Loading...</div>
 
-        <div class="overlay">
-          <div class="last-unit">LAST<br />UNIT</div>
-
-          <div class="drag-group scoin-value-group drag-outline" id="scoinValueGroup">
-            <div class="percent-main" id="percentMain">70</div>
-          </div>
-
-          <div class="drag-group scoin-text-group drag-outline" id="scoinTextGroup">
-            <div class="percent-symbol">%<span class="asterisk">*</span></div>
-            <div class="cashback">
-              <span class="scoin-line">S-COIN</span>
-              <span class="cashback-line">CASHBACK</span>
-            </div>
-          </div>
-
-          <div class="price-box"></div>
-
-          <div class="model-label">MODEL:</div>
-          <div class="desc-label">DESCRIPTION:</div>
-          <div class="model-value" id="modelValue"></div>
-          <div class="desc-value" id="descValue"></div>
-
-          <div class="now-rm">
-            <span class="now">NOW</span>
-            <span class="rm">RM</span>
-          </div>
-
-          <div class="now-price" id="nowValue">9,999</div>
-          <div class="before">BEFORE: RM<span class="value" id="beforeValue">9,999</span></div>
+    <div class="panel" style="margin-top:12px;">
+      <div class="list-tools">
+        <div>
+          <b>Select items to print</b>
+          <div class="muted small">Search by model, product name, S-Coin points, or remark.</div>
+        </div>
+        <div>
+          <button type="button" class="light" id="checkVisibleBtn">Check Visible</button>
+          <button type="button" class="light" id="uncheckVisibleBtn">Uncheck Visible</button>
+          <button type="button" class="secondary" id="uncheckAllBtn">Uncheck All</button>
         </div>
       </div>
-    </main>
+      <input type="text" id="searchInput" placeholder="Search model / product / remark..." />
+      <div id="itemCheckboxes"></div>
+    </div>
+
+    <div style="margin-top:12px;">
+      <button type="button" id="generateBtn">1. Generate Selected Tags</button>
+      <button type="button" class="secondary" id="resetBtn">Clear Preview</button>
+      <button type="button" style="background:#222;" id="printBtn">2. Print</button>
+    </div>
+  </div>
+
+  <div id="previewShell">
+    <div id="printArea"></div>
+  </div>
   </div>
 
   <script>
-    const modelInput = document.getElementById('model');
-    const descriptionInput = document.getElementById('description');
-    const beforePriceInput = document.getElementById('beforePrice');
-    const nowPriceInput = document.getElementById('nowPrice');
-    const scoinPercentInput = document.getElementById('scoinPercent');
-    const percentXInput = document.getElementById('percentX');
-    const percentYInput = document.getElementById('percentY');
-    const textXInput = document.getElementById('textX');
-    const textYInput = document.getElementById('textY');
+    const IMAGE_W = 1444;
+    const IMAGE_H = 2048;
 
-    const modelValue = document.getElementById('modelValue');
-    const descValue = document.getElementById('descValue');
-    const beforeValue = document.getElementById('beforeValue');
-    const nowValue = document.getElementById('nowValue');
-    const percentMain = document.getElementById('percentMain');
-    const sheet = document.getElementById('sheet');
-    const scoinValueGroup = document.getElementById('scoinValueGroup');
-    const scoinTextGroup = document.getElementById('scoinTextGroup');
-    const printBtn = document.getElementById('printBtn');
-    const clearBtn = document.getElementById('clearBtn');
+    const DEFAULT_EXCEL_FILES = [
+      '100% S-Coin Redemption - May26 SBU List.xlsx',
+      'data.xlsx',
+      'scoin.xlsx'
+    ];
 
-    const dragState = {
-      percent: { x: 28, y: 97 },
-      text: { x: 130, y: 114 }
+    const DEFAULT_TEMPLATE_FILES = [
+      'mrmc_image.png',
+      'mrmc_image(2).png',
+      'template.png'
+    ];
+
+    const PREFERRED_SHEETS = [
+      'May26 List',
+      'May26 CLear On Hand List'
+    ];
+
+    const tagLayouts = [
+      makeLayout({ model:[29,234,653,124], name:[27,383,653,147], scoin:[28,556,654,291] }),
+      makeLayout({ model:[758,233,653,124], name:[756,382,653,146], scoin:[757,555,654,290] }),
+      makeLayout({ model:[31,1268,653,125], name:[28,1417,653,148], scoin:[29,1591,654,290] }),
+      makeLayout({ model:[760,1267,653,124], name:[758,1416,653,147], scoin:[759,1590,654,290] })
+    ];
+
+    let allItems = [];
+    let selectedItems = [];
+    let templateSrc = '';
+    let loadedWorkbookName = '';
+    let stoppedCount = 0;
+    let rawRowCount = 0;
+
+    const fontMax = {
+      'tag-points': 92,
+      'tag-name': 16,
+      'tag-model': 18,
+      'tag-price': 12,
+      'tag-remark': 8.5
     };
 
-    function sanitizeText(value) {
-      return String(value).replace(/[<>]/g, '').trim();
-    }
+    const fontCssVar = {
+      'tag-points': '--fs-points',
+      'tag-name': '--fs-name',
+      'tag-model': '--fs-model',
+      'tag-price': '--fs-price',
+      'tag-remark': '--fs-remark'
+    };
 
-    function sanitizePrice(value) {
-      return String(value).replace(/[^0-9.,]/g, '').trim();
-    }
+    function makeLayout(boxes) {
+      const model = boxes.model;
+      const name = boxes.name;
+      const scoin = boxes.scoin;
 
-    function sanitizePercent(value) {
-      return String(value).replace(/[^0-9]/g, '').slice(0, 3);
-    }
-
-    function mmToCss(mm) {
-      return `${mm}mm`;
-    }
-
-    function clamp(value, min, max) {
-      return Math.min(max, Math.max(min, value));
-    }
-
-    function applyDragPositions() {
-      scoinValueGroup.style.left = mmToCss(dragState.percent.x);
-      scoinValueGroup.style.top = mmToCss(dragState.percent.y);
-      scoinTextGroup.style.left = mmToCss(dragState.text.x);
-      scoinTextGroup.style.top = mmToCss(dragState.text.y);
-      percentXInput.value = dragState.percent.x.toFixed(1);
-      percentYInput.value = dragState.percent.y.toFixed(1);
-      textXInput.value = dragState.text.x.toFixed(1);
-      textYInput.value = dragState.text.y.toFixed(1);
-    }
-
-    function updatePreview() {
-      modelValue.textContent = sanitizeText(modelInput.value).toUpperCase();
-      descValue.textContent = sanitizeText(descriptionInput.value).replace(/\s*\n\s*/g, ' ').toUpperCase();
-      beforeValue.textContent = sanitizePrice(beforePriceInput.value);
-      nowValue.textContent = sanitizePrice(nowPriceInput.value);
-      percentMain.textContent = sanitizePercent(scoinPercentInput.value);
-    }
-
-    function bindCoordInput(input, group, axis, min, max) {
-      input.addEventListener('input', () => {
-        const value = parseFloat(input.value);
-        if (!Number.isFinite(value)) {
-          return;
-        }
-        dragState[group][axis] = +clamp(value, min, max).toFixed(1);
-        applyDragPositions();
-      });
-    }
-
-    function enableDrag(element, groupKey, maxX, maxY) {
-      let dragging = false;
-      let startX = 0;
-      let startY = 0;
-      let originX = 0;
-      let originY = 0;
-
-      const endDrag = (event) => {
-        if (!dragging) {
-          return;
-        }
-        dragging = false;
-        element.classList.remove('dragging');
-        try {
-          element.releasePointerCapture(event.pointerId);
-        } catch (error) {
-        }
+      return {
+        model: [model[0] + 24, model[1] + 36, model[2] - 48, model[3] - 42],
+        name: [name[0] + 12, name[1] + 20, name[2] - 24, name[3] - 20],
+        points: [scoin[0] + 10, scoin[1] + 38, scoin[2] - 20, 196],
+        // The grey strip at the bottom of each tag starts roughly 288px below the NOW/S-Coin box top.
+        // Price and remark are intentionally placed inside that strip so they remain readable on the pre-printed template.
+        price: [scoin[0] + 28, scoin[1] + 302, scoin[2] - 120, 26],
+        remark: [scoin[0] + 28, scoin[1] + 330, scoin[2] - 82, 36]
       };
+    }
 
-      element.addEventListener('pointerdown', (event) => {
-        if (!event.isPrimary) {
-          return;
-        }
-        dragging = true;
-        element.classList.add('dragging');
-        startX = event.clientX;
-        startY = event.clientY;
-        originX = dragState[groupKey].x;
-        originY = dragState[groupKey].y;
-        try {
-          element.setPointerCapture(event.pointerId);
-        } catch (error) {
-        }
-      });
+    function rectStyle(rect) {
+      const [x, y, w, h] = rect;
+      return [
+        `left:${(x / IMAGE_W) * 100}%`,
+        `top:${(y / IMAGE_H) * 100}%`,
+        `width:${(w / IMAGE_W) * 100}%`,
+        `height:${(h / IMAGE_H) * 100}%`
+      ].join(';');
+    }
 
-      element.addEventListener('pointermove', (event) => {
-        if (!dragging) {
-          return;
-        }
-        const rect = sheet.getBoundingClientRect();
-        if (!rect.width || !rect.height) {
-          return;
-        }
-        const dxPx = event.clientX - startX;
-        const dyPx = event.clientY - startY;
-        const mmPerPxX = 210 / rect.width;
-        const mmPerPxY = 297 / rect.height;
-        dragState[groupKey].x = +clamp(originX + dxPx * mmPerPxX, 0, maxX).toFixed(1);
-        dragState[groupKey].y = +clamp(originY + dyPx * mmPerPxY, 0, maxY).toFixed(1);
-        applyDragPositions();
-      });
+    function clean(value) {
+      return String(value ?? '')
+        .replace(/\u00A0/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
 
-      element.addEventListener('pointerup', endDrag);
-      element.addEventListener('pointercancel', endDrag);
-      element.addEventListener('lostpointercapture', () => {
-        dragging = false;
-        element.classList.remove('dragging');
+    function getCell(row, aliases) {
+      for (const key of aliases) {
+        if (Object.prototype.hasOwnProperty.call(row, key)) return row[key];
+      }
+
+      const normalized = Object.keys(row).find(k => aliases.some(a => clean(k).toLowerCase() === clean(a).toLowerCase()));
+      return normalized ? row[normalized] : '';
+    }
+
+    function normalizeRM(value) {
+      const text = clean(value);
+      if (!text || text === '-' || text.toLowerCase() === 'rm0' || text === '0') return '';
+
+      const numeric = Number(text.replace(/rm/ig, '').replace(/,/g, '').trim());
+      if (!Number.isNaN(numeric)) {
+        return 'RM' + numeric.toLocaleString('en-MY', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+      }
+
+      if (/^rm/i.test(text)) return text.toUpperCase().replace(/^RM\s*/, 'RM');
+      return 'RM' + text;
+    }
+
+    function formatPoints(value) {
+      const text = clean(value);
+      if (!text || text === '-') return '';
+      const numeric = Number(text.replace(/,/g, ''));
+      if (!Number.isNaN(numeric)) return Math.round(numeric).toLocaleString('en-US');
+      return text;
+    }
+
+    function isStoppedRemark(remark) {
+      const text = clean(remark).toLowerCase();
+      if (!text) return false;
+      return /\bstop(?:ped)?\b/.test(text) || /\bno\s+longer\b/.test(text) || /\bconvert\s+to\s+ug\b/.test(text);
+    }
+
+    function waitForXLSX(timeoutMs = 8000) {
+      return new Promise((resolve, reject) => {
+        const start = Date.now();
+        const timer = setInterval(() => {
+          if (window.XLSX) {
+            clearInterval(timer);
+            resolve();
+          } else if (Date.now() - start > timeoutMs) {
+            clearInterval(timer);
+            reject(new Error('SheetJS XLSX library did not load. Put xlsx.full.min.js in the same folder, or allow internet for CDN loading.'));
+          }
+        }, 120);
       });
     }
 
-    [modelInput, descriptionInput, beforePriceInput, nowPriceInput, scoinPercentInput].forEach((input) => {
-      input.addEventListener('input', updatePreview);
+    function updateStatus(extra = '') {
+      const checked = document.querySelectorAll('.item-checkbox:checked').length;
+      const visible = Array.from(document.querySelectorAll('.item-row')).filter(row => row.style.display !== 'none').length;
+      const msg = [
+        loadedWorkbookName ? `Excel: <b>${escapeHtml(loadedWorkbookName)}</b>` : 'Excel: not loaded',
+        templateSrc ? `Template: <b>${escapeHtml(templateSrc)}</b>` : 'Template: not loaded',
+        `Rows read: <b>${rawRowCount}</b>`,
+        `Active rows: <b>${allItems.length}</b>`,
+        `Stopped rows excluded: <b>${stoppedCount}</b>`,
+        `Visible list: <b>${visible}</b>`,
+        `Selected: <b>${checked}</b>`
+      ];
+      document.getElementById('statusBox').innerHTML = msg.join(' &nbsp; | &nbsp; ') + (extra ? `<br>${extra}` : '');
+    }
+
+    function escapeHtml(value) {
+      return clean(value).replace(/[&<>'"]/g, ch => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        "'": '&#39;',
+        '"': '&quot;'
+      }[ch]));
+    }
+
+    async function autoLoadTemplate() {
+      for (const src of DEFAULT_TEMPLATE_FILES) {
+        const ok = await testImage(src);
+        if (ok) {
+          templateSrc = src;
+          document.getElementById('templateStatus').textContent = 'Loaded: ' + src;
+          renderBlankPreview();
+          updateStatus();
+          return;
+        }
+      }
+      document.getElementById('templateStatus').textContent = 'Template not auto-loaded. Select the image manually.';
+      renderBlankPreview();
+      updateStatus();
+    }
+
+    function testImage(src) {
+      return new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+        img.src = src + '?v=' + Date.now();
+      });
+    }
+
+    async function autoLoadWorkbook() {
+      try {
+        await waitForXLSX();
+      } catch (err) {
+        document.getElementById('fileNameDisplay').textContent = err.message;
+        updateStatus();
+        return;
+      }
+
+      for (const fileName of DEFAULT_EXCEL_FILES) {
+        try {
+          const response = await fetch(fileName, { cache: 'no-store' });
+          if (!response.ok) continue;
+          const arrayBuffer = await response.arrayBuffer();
+          loadedWorkbookName = fileName;
+          processWorkbookArrayBuffer(arrayBuffer, fileName);
+          document.getElementById('fileNameDisplay').textContent = 'Loaded: ' + fileName;
+          return;
+        } catch (err) {
+          // file:// may block fetch. Manual file input below is the fallback.
+        }
+      }
+
+      document.getElementById('fileNameDisplay').textContent = 'Excel not auto-loaded. Select the file manually.';
+      updateStatus();
+    }
+
+    function processWorkbookArrayBuffer(arrayBuffer, fileName) {
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      const sheetNames = chooseSheetNames(workbook);
+      const rows = [];
+
+      sheetNames.forEach(sheetName => {
+        const sheet = workbook.Sheets[sheetName];
+        if (!sheet) return;
+        const jsonRows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: true });
+        jsonRows.forEach(row => rows.push({ ...row, __sheetName: sheetName }));
+      });
+
+      rawRowCount = rows.length;
+      stoppedCount = 0;
+
+      allItems = rows.map((row, index) => {
+        const model = clean(getCell(row, ['Model', 'MODEL', 'Model Code', 'MODEL CODE']));
+        const scf = clean(getCell(row, ['SCF', 'SCF Code']));
+        const productName = clean(getCell(row, ['Product Name/Description', 'Product Name', 'Full Name', 'Description']));
+        const line = clean(getCell(row, ['Line']));
+        const rcp = normalizeRM(getCell(row, ['RCP']));
+        const blk = normalizeRM(getCell(row, ['BLK', 'Member Price', 'Member']));
+        const points = formatPoints(getCell(row, ['S-Coin Points', 'S Coin Points', 'S-Coin', 'Points']));
+        const remark = clean(getCell(row, ['Remark', 'Remarks']));
+        const stopped = isStoppedRemark(remark);
+
+        if (stopped) stoppedCount++;
+
+        return {
+          id: index,
+          model,
+          scf,
+          productName,
+          line,
+          rcp,
+          blk,
+          points,
+          remark,
+          sheetName: row.__sheetName,
+          stopped
+        };
+      }).filter(item => item.model && item.points && !item.stopped);
+
+      loadedWorkbookName = fileName;
+      buildCheckboxList();
+      renderBlankPreview();
+      updateStatus(`Sheets used: <b>${sheetNames.map(escapeHtml).join(', ')}</b>`);
+    }
+
+    function chooseSheetNames(workbook) {
+      const exact = PREFERRED_SHEETS.filter(name => workbook.Sheets[name]);
+      if (exact.length) return exact;
+
+      const may26 = workbook.SheetNames.filter(name => /may\s*26/i.test(name));
+      if (may26.length) return may26;
+
+      const visible = workbook.SheetNames.filter((name, idx) => {
+        const meta = workbook.Workbook && workbook.Workbook.Sheets && workbook.Workbook.Sheets[idx];
+        return !meta || !meta.Hidden;
+      });
+      return visible.length ? visible : [workbook.SheetNames[0]];
+    }
+
+    function buildCheckboxList() {
+      const container = document.getElementById('itemCheckboxes');
+      container.innerHTML = '';
+
+      const fragment = document.createDocumentFragment();
+      allItems.forEach(item => {
+        const label = document.createElement('label');
+        label.className = 'item-row';
+        label.dataset.search = [item.model, item.scf, item.productName, item.points, item.blk, item.rcp, item.remark, item.sheetName].join(' ').toLowerCase();
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'item-checkbox';
+        checkbox.value = item.id;
+        checkbox.checked = true;
+        checkbox.addEventListener('change', () => updateStatus());
+
+        const details = document.createElement('div');
+        details.innerHTML = `
+          <div class="item-main">${escapeHtml(item.model)} &nbsp; — &nbsp; ${escapeHtml(item.productName || '(blank product name)')}</div>
+          <div class="item-sub">${escapeHtml(item.points)} S-Coin${item.blk ? ' | BLK ' + escapeHtml(item.blk) : ''}${item.rcp ? ' | RCP ' + escapeHtml(item.rcp) : ''}</div>
+          ${item.remark ? `<div class="item-remark">${escapeHtml(item.remark)}</div>` : ''}
+        `;
+
+        label.appendChild(checkbox);
+        label.appendChild(details);
+        fragment.appendChild(label);
+      });
+
+      container.appendChild(fragment);
+      filterCheckboxes();
+    }
+
+    function filterCheckboxes() {
+      const term = document.getElementById('searchInput').value.toLowerCase().trim();
+      document.querySelectorAll('.item-row').forEach(row => {
+        row.style.display = row.dataset.search.includes(term) ? 'flex' : 'none';
+      });
+      updateStatus();
+    }
+
+    function getSelectedItems() {
+      const byId = new Map(allItems.map(item => [String(item.id), item]));
+      return Array.from(document.querySelectorAll('.item-checkbox:checked'))
+        .map(cb => byId.get(cb.value))
+        .filter(Boolean);
+    }
+
+    function createPage() {
+      const page = document.createElement('div');
+      page.className = 'a4-page';
+      if (templateSrc) {
+        const img = document.createElement('img');
+        img.className = 'bg-img';
+        img.alt = 'Template background';
+        img.src = templateSrc;
+        page.appendChild(img);
+      }
+      return page;
+    }
+
+    function addField(page, cls, rect, value) {
+      const el = document.createElement('div');
+      const isSingleLine = ['tag-model', 'tag-points', 'tag-price'].includes(cls);
+      el.className = 'tag-field ' + cls + (isSingleLine ? ' single-line' : '');
+      el.style.cssText = rectStyle(rect);
+
+      const inner = document.createElement('span');
+      inner.className = 'fit-inner';
+      inner.textContent = value || '';
+      el.appendChild(inner);
+      page.appendChild(el);
+    }
+
+    function getFitConfig(cls) {
+      switch (cls) {
+        case 'tag-model':
+          return { type: 'scale', minScale: 0.55, marginX: 4, marginY: 2 };
+        case 'tag-name':
+          return { type: 'scaleBlock', minScale: 0.18, marginX: 4, marginY: 3 };
+        case 'tag-points':
+          return { type: 'scale', minScale: 0.38, marginX: 10, marginY: 8 };
+        case 'tag-price':
+          return { type: 'scale', minScale: 0.65, marginX: 4, marginY: 2 };
+        case 'tag-remark':
+          return { type: 'shrinkFont', min: 5, max: fontMax['tag-remark'], step: 0.25, marginX: 4, marginY: 2 };
+        default:
+          return { type: 'scale', minScale: 0.5, marginX: 4, marginY: 2 };
+      }
+    }
+
+    function getBaseFontSize(cls) {
+      return fontMax[cls] || 12;
+    }
+
+    function getAvailableSize(el, cfg) {
+      const rect = el.getBoundingClientRect();
+      const styles = getComputedStyle(el);
+      const padX = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
+      const padY = parseFloat(styles.paddingTop) + parseFloat(styles.paddingBottom);
+      return {
+        width: Math.max(0, rect.width - padX - (cfg.marginX || 0)),
+        height: Math.max(0, rect.height - padY - (cfg.marginY || 0))
+      };
+    }
+
+    function fitText(el, cls) {
+      const inner = el.querySelector('.fit-inner');
+      if (!inner) return;
+
+      const cfg = getFitConfig(cls);
+      const available = getAvailableSize(el, cfg);
+
+      // If the browser has not finished laying out the page, do nothing.
+      if (available.width < 10 || available.height < 8) return;
+
+      inner.style.transform = 'none';
+      inner.style.width = '';
+      inner.style.maxWidth = '';
+      inner.style.whiteSpace = '';
+      inner.style.wordBreak = '';
+      inner.style.overflowWrap = '';
+      inner.style.fontSize = 'inherit';
+
+      if (cfg.type === 'scaleBlock') {
+        // Multi-line fields, especially Product Name.
+        // The slider changes the parent font-size via CSS variable.
+        // This function only scales down visually if the text would crop.
+        inner.style.width = '100%';
+        inner.style.maxWidth = '100%';
+        inner.style.whiteSpace = 'normal';
+        inner.style.wordBreak = 'normal';
+        inner.style.overflowWrap = 'anywhere';
+        inner.style.fontSize = 'inherit';
+
+        const naturalWidth = Math.max(inner.scrollWidth, inner.getBoundingClientRect().width);
+        const naturalHeight = Math.max(inner.scrollHeight, inner.getBoundingClientRect().height);
+        if (naturalWidth <= 0 || naturalHeight <= 0) return;
+
+        const scale = Math.min(
+          1,
+          available.width / naturalWidth,
+          available.height / naturalHeight
+        );
+
+        inner.style.transform = 'scale(' + Math.max(cfg.minScale || 0.18, scale).toFixed(4) + ')';
+        return;
+      }
+
+      if (cfg.type === 'shrinkFont') {
+        inner.style.width = '100%';
+        inner.style.maxWidth = '100%';
+        inner.style.whiteSpace = 'normal';
+        inner.style.wordBreak = 'normal';
+        inner.style.overflowWrap = 'anywhere';
+
+        let size = Math.min(getBaseFontSize(cls), cfg.max);
+        inner.style.fontSize = size + 'px';
+
+        let guard = 0;
+        while ((inner.scrollHeight > available.height || inner.scrollWidth > available.width) && size > cfg.min && guard < 80) {
+          size = Math.max(cfg.min, size - cfg.step);
+          inner.style.fontSize = size + 'px';
+          guard++;
+        }
+        return;
+      }
+
+      // Single-line fields keep the chosen slider font size.
+      // They only scale down visually if the text would crop.
+      inner.style.whiteSpace = 'nowrap';
+      inner.style.fontSize = 'inherit';
+
+      const innerRect = inner.getBoundingClientRect();
+      const naturalWidth = Math.max(inner.scrollWidth, innerRect.width);
+      const naturalHeight = Math.max(inner.scrollHeight, innerRect.height);
+
+      if (naturalWidth <= 0 || naturalHeight <= 0) return;
+
+      const scale = Math.min(
+        1,
+        available.width / naturalWidth,
+        available.height / naturalHeight
+      );
+
+      inner.style.transform = 'scale(' + Math.max(cfg.minScale || 0.35, scale).toFixed(4) + ')';
+    }
+
+    function renderBlankPreview() {
+      const printArea = document.getElementById('printArea');
+      printArea.innerHTML = '';
+      const page = createPage();
+      printArea.appendChild(page);
+    }
+
+    function runFitAllFieldsNow() {
+      document.querySelectorAll('#printArea .tag-field').forEach(el => {
+        const cls = Array.from(el.classList).find(c => c.startsWith('tag-') && c !== 'tag-field');
+        if (cls) fitText(el, cls);
+      });
+    }
+
+    function fitAllFields() {
+      requestAnimationFrame(() => requestAnimationFrame(runFitAllFieldsNow));
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(runFitAllFieldsNow).catch(() => {});
+      }
+    }
+
+    function generateTags() {
+      selectedItems = getSelectedItems();
+      if (!selectedItems.length) {
+        alert('Please select at least one item.');
+        return;
+      }
+
+      const printArea = document.getElementById('printArea');
+      printArea.innerHTML = '';
+
+      for (let i = 0; i < selectedItems.length; i += 4) {
+        const page = createPage();
+        const chunk = selectedItems.slice(i, i + 4);
+
+        tagLayouts.forEach((layout, slot) => {
+          const item = chunk[slot];
+          if (!item) {
+            const empty = document.createElement('div');
+            empty.className = 'empty-tag';
+            page.appendChild(empty);
+            return;
+          }
+
+          const priceLine = [item.blk ? `MEMBER PRICE: ${item.blk}` : '', item.rcp ? `RCP: ${item.rcp}` : '']
+            .filter(Boolean)
+            .join('   |   ');
+
+          addField(page, 'tag-model', layout.model, item.model);
+          addField(page, 'tag-name', layout.name, item.productName);
+          addField(page, 'tag-points', layout.points, item.points);
+          addField(page, 'tag-price', layout.price, priceLine);
+          addField(page, 'tag-remark', layout.remark, item.remark);
+        });
+
+        printArea.appendChild(page);
+      }
+
+      fitAllFields();
+      updateStatus();
+      const shell = document.getElementById('previewShell');
+      if (shell) shell.scrollTop = 0;
+    }
+
+    function checkVisible(value) {
+      document.querySelectorAll('.item-row').forEach(row => {
+        if (row.style.display !== 'none') {
+          const cb = row.querySelector('.item-checkbox');
+          if (cb) cb.checked = value;
+        }
+      });
+      updateStatus();
+    }
+
+    function applyNudge() {
+      const x = Number(document.getElementById('nudgeX').value || 0);
+      const y = Number(document.getElementById('nudgeY').value || 0);
+      document.documentElement.style.setProperty('--nudge-x', x + 'mm');
+      document.documentElement.style.setProperty('--nudge-y', y + 'mm');
+    }
+
+
+    function updateFontControl(id, cls) {
+      const input = document.getElementById(id);
+      const label = document.getElementById(id + 'Val');
+      if (!input || !label) return;
+
+      const value = Number(input.value);
+      fontMax[cls] = value;
+      label.textContent = input.value;
+
+      if (fontCssVar[cls]) {
+        document.documentElement.style.setProperty(fontCssVar[cls], value + 'px');
+      }
+
+      // Force the selected field type to inherit the new CSS size before re-fitting.
+      document.querySelectorAll('#printArea .' + cls + ' .fit-inner').forEach(inner => {
+        inner.style.fontSize = 'inherit';
+        inner.style.transform = 'none';
+      });
+
+      runFitAllFieldsNow();
+      fitAllFields();
+    }
+
+    function setupFontControls() {
+      [
+        ['fontPoints', 'tag-points'],
+        ['fontName', 'tag-name'],
+        ['fontModel', 'tag-model'],
+        ['fontPrice', 'tag-price'],
+        ['fontRemark', 'tag-remark']
+      ].forEach(([id, cls]) => {
+        const input = document.getElementById(id);
+        if (!input) return;
+        input.addEventListener('input', () => updateFontControl(id, cls));
+        updateFontControl(id, cls);
+      });
+    }
+
+    document.getElementById('excelFileInput').addEventListener('change', async event => {
+      const file = event.target.files[0];
+      if (!file) return;
+      try {
+        await waitForXLSX();
+        const buffer = await file.arrayBuffer();
+        processWorkbookArrayBuffer(buffer, file.name);
+        document.getElementById('fileNameDisplay').textContent = 'Loaded: ' + file.name;
+      } catch (err) {
+        alert(err.message);
+      }
     });
 
-    bindCoordInput(percentXInput, 'percent', 'x', 0, 170);
-    bindCoordInput(percentYInput, 'percent', 'y', 0, 220);
-    bindCoordInput(textXInput, 'text', 'x', 0, 190);
-    bindCoordInput(textYInput, 'text', 'y', 0, 240);
-
-    enableDrag(scoinValueGroup, 'percent', 170, 220);
-    enableDrag(scoinTextGroup, 'text', 190, 240);
-
-    printBtn.addEventListener('click', () => {
-      updatePreview();
-      window.print();
+    document.getElementById('templateFileInput').addEventListener('change', event => {
+      const file = event.target.files[0];
+      if (!file) return;
+      if (templateSrc && templateSrc.startsWith('blob:')) URL.revokeObjectURL(templateSrc);
+      templateSrc = URL.createObjectURL(file);
+      document.getElementById('templateStatus').textContent = 'Loaded: ' + file.name;
+      renderBlankPreview();
+      updateStatus();
     });
 
-    clearBtn.addEventListener('click', () => {
-      modelInput.value = '';
-      descriptionInput.value = '';
-      beforePriceInput.value = '';
-      nowPriceInput.value = '';
-      scoinPercentInput.value = '';
-      updatePreview();
+    document.getElementById('searchInput').addEventListener('input', filterCheckboxes);
+    document.getElementById('checkVisibleBtn').addEventListener('click', () => checkVisible(true));
+    document.getElementById('uncheckVisibleBtn').addEventListener('click', () => checkVisible(false));
+    document.getElementById('uncheckAllBtn').addEventListener('click', () => {
+      document.querySelectorAll('.item-checkbox').forEach(cb => cb.checked = false);
+      updateStatus();
+    });
+    document.getElementById('generateBtn').addEventListener('click', generateTags);
+    document.getElementById('resetBtn').addEventListener('click', renderBlankPreview);
+    document.getElementById('printBtn').addEventListener('click', () => window.print());
+    document.getElementById('nudgeX').addEventListener('input', applyNudge);
+    document.getElementById('nudgeY').addEventListener('input', applyNudge);
+    document.getElementById('printBgCheckbox').addEventListener('change', event => {
+      document.body.classList.toggle('print-template', event.target.checked);
     });
 
-    modelInput.value = 'QA75QN70F';
-    descriptionInput.value = '75 INCH NEO QLED 4K SMART TV';
-    beforePriceInput.value = '9,999';
-    nowPriceInput.value = '9,999';
-    scoinPercentInput.value = '70';
+    window.addEventListener('resize', fitAllFields);
 
-    applyDragPositions();
-    updatePreview();
+    window.addEventListener('DOMContentLoaded', () => {
+      applyNudge();
+      setupFontControls();
+      renderBlankPreview();
+      autoLoadTemplate();
+      autoLoadWorkbook();
+    });
   </script>
 </body>
 </html>
